@@ -10,7 +10,10 @@ import traci
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NETWORK_FILE = os.path.join(BASE_DIR, "simulation", "network.net.xml")
-SUMO_CONFIG = os.path.join(BASE_DIR, "simulation", "simulation.sumocfg")
+SUMO_CONFIG = os.environ.get(
+    "SMART_ROUTE_SUMO_CONFIG",
+    os.path.join(BASE_DIR, "simulation", "simulation.sumocfg"),
+)
 
 
 def load_network():
@@ -136,6 +139,7 @@ def run_dynamic_optimization(
     reroute_interval=10,
     max_steps=300,
     gui=False,
+    emergency=False,
 ):
     """Run SUMO and continuously reroute a vehicle as traffic changes."""
     graph = load_network()
@@ -147,6 +151,9 @@ def run_dynamic_optimization(
     print("\n========================================")
     print(" DYNAMIC REAL-TIME ROUTE OPTIMIZATION")
     print("========================================")
+    if emergency:
+        print("Emergency mode: ENABLED")
+        print(f"Emergency vehicle: {vehicle_id or 'emergency_0'}")
     print(f"Destination node: {destination}")
     print(f"Reroute interval: {reroute_interval} simulation seconds")
 
@@ -243,6 +250,11 @@ def main():
         action="store_true",
         help="Run with sumo-gui instead of sumo.",
     )
+    parser.add_argument(
+        "--emergency",
+        action="store_true",
+        help="Track emergency_0 and use the emergency SUMO configuration.",
+    )
     args = parser.parse_args()
 
     if args.interval <= 0:
@@ -250,12 +262,21 @@ def main():
     if args.steps <= 0:
         raise ValueError("--steps must be greater than 0")
 
+    if args.emergency:
+        vehicle_id = args.vehicle_id or "emergency_0"
+        os.environ["SMART_ROUTE_SUMO_CONFIG"] = os.path.join(
+            BASE_DIR, "simulation", "emergency.sumocfg"
+        )
+    else:
+        vehicle_id = args.vehicle_id
+
     run_dynamic_optimization(
-        vehicle_id=args.vehicle_id,
+        vehicle_id=vehicle_id,
         destination=args.destination,
         reroute_interval=args.interval,
         max_steps=args.steps,
         gui=args.gui,
+        emergency=args.emergency,
     )
 
 
